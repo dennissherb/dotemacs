@@ -1,4 +1,5 @@
 #+TITLE: Literate config file
+#+OPTIONS: toc:2
 
 * Table Of Contents
 * About
@@ -36,7 +37,7 @@ Disable any reference to package.el
 #+begin_src emacs-lisp
 (straight-use-package 'use-package)
 #+end_src
-
+ 
 * Performance Optimization
 A very nice source: https://github.com/hlissner/doom-emacs/blob/develop/docs/faq.org#how-does-doom-start-up-so-quickly
 ** Garbage Collection
