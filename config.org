@@ -1,0 +1,686 @@
+#+TITLE: Literate config file
+
+* About
+** init.el
+#+begin_src emacs-lisp :tangle init.el
+  (org-babel-load-file "~/.config/emacs/config.org")
+#+end_src
+
+* Package Management
+** Straight
+*** Bootstrap
+Taken from https://github.com/raxod502/straight.el#getting-started 
+#+begin_src emacs-lisp
+  (defvar bootstrap-version)
+  (let ((bootstrap-file
+         (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
+        (bootstrap-version 5))
+    (unless (file-exists-p bootstrap-file)
+      (with-current-buffer
+          (url-retrieve-synchronously
+           "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
+           'silent 'inhibit-cookies)
+        (goto-char (point-max))
+        (eval-print-last-sexp)))
+    (load bootstrap-file nil 'nomessage))
+#+end_src
+
+*** Settings
+Disable any reference to package.el
+#+begin_src emacs-lisp :tangle early-init.el
+  (setq package-enable-at-startup nil)
+  (setq straight-use-package-by-default 1)
+#+end_src
+** Integration with =use-package=
+#+begin_src emacs-lisp
+(straight-use-package 'use-package)
+#+end_src
+
+* Performance Optimization
+A very nice source: https://github.com/hlissner/doom-emacs/blob/develop/docs/faq.org#how-does-doom-start-up-so-quickly
+** Garbage Collection
+Make startup faster by reducing the frequency of garbage collection.
+Set gc-cons-threshold (the default is 800 kilobytes) to maximum value
+available, to prevent any garbage collection from happening during
+load time.
+
+Note: tangle to early-init.el to make startup even faster
+#+BEGIN_SRC emacs-lisp :tangle early-init.el
+(setq gc-cons-threshold most-positive-fixnum)
+#+END_SRC
+
+Restore it to reasonable value after init. Also stop garbage collection during
+minibuffer interaction (helm etc.).
+#+BEGIN_SRC emacs-lisp
+(defconst 1mb 1048576)
+(defconst 20mb 20971520)
+(defconst 30mb 31457280)
+(defconst 50mb 52428800)
+
+(defun qk/defer-garbage-collection ()
+  (setq gc-cons-threshold most-positive-fixnum))
+
+(defun qk/restore-garbage-collection ()
+  (run-at-time 1 nil (lambda () (setq gc-cons-threshold 30mb))))
+
+(add-hook 'emacs-startup-hook 'qk/restore-garbage-collection 100)
+(add-hook 'minibuffer-setup-hook 'qk/defer-garbage-collection)
+(add-hook 'minibuffer-exit-hook 'qk/restore-garbage-collection)
+
+(setq read-process-output-max 1mb)  ;; lsp-mode's performance suggest
+#+END_SRC
+
+** File Handler
+(Note: ":tangle early-init.el")
+https://www.gnu.org/software/emacs/manual/html_node/elisp/Magic-File-Names.html
+#+begin_src emacs-lisp :tangle early-init.el
+(defvar default-file-name-handler-alist file-name-handler-alist)
+(setq file-name-handler-alist nil)
+
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (setq file-name-handler-alist default-file-name-handler-alist)) 100)
+#+end_src
+* Better Defaults
+** Visual bell
+#+begin_src emacs-lisp
+  (setq visible-bell t)
+#+end_src
+
+** File Paths
+Keep Emacs directory clean.
+#+BEGIN_SRC emacs-lisp
+  (use-package no-littering
+    :straight t
+    :config
+    (with-eval-after-load 'recentf
+      (add-to-list 'recentf-exclude no-littering-var-directory)
+      (add-to-list 'recentf-exclude no-littering-etc-directory))
+
+    (setq auto-save-file-name-transforms  ; autosaved-file-name~
+          `((".*" ,(no-littering-expand-var-file-name "auto-save/") t))
+          custom-file (no-littering-expand-etc-file-name "custom.el"))
+
+    (when (file-exists-p custom-file)
+      ;; Load `custom-set-variables', not load whole `custom.el' with unwanted
+      ;; `custom-set-faces'
+      (with-current-buffer (find-file-noselect custom-file)
+        (goto-char 0)
+        (forward-sexp)
+        (call-interactively 'eval-last-sexp)
+        (kill-buffer)))
+
+    (defconst qk/static-directory (locate-user-emacs-file "static/"))
+
+    (defun qk/expand-static-file-name (file)
+      "Expand filename FILE relative to `qk/static-directory'."
+      (expand-file-name file qk/static-directory)))
+#+END_SRC
+
+** Keybindings
+*** General
+#+begin_src emacs-lisp
+  (defun search-in-config ()
+  (interactive) (let ((default-directory "~/.config/emacs/")) (call-interactively 'find-file)))
+
+  (use-package general
+    :straight t)
+  ;; Set SPC as prefix key
+  (general-create-definer leader-def
+    :keymaps 'override
+    :prefix "SPC")
+
+  ;; Define some keys to begin with SPC
+  (leader-def
+    :states 'motion
+    ":" 'execute-extended-command
+    "C-;" 'comment-or-uncomment-region
+    "." 'find-file
+    "h v" 'describe-variable
+    "h f" 'describe-function
+    "f p" 'search-in-config
+    "," 'counsel-switch-buffer
+    "b k" 'kill-this-buffer
+    "f r" 'consult-recent-file
+    "w l" 'evil-window-right
+    "w h" 'evil-window-left
+    "w j" 'evil-window-down
+    "w k" 'evil-window-up
+    "w s" 'evil-window-split
+    "w v" 'evil-window-vsplit
+    "w c" 'evil-window-delete
+    "w L" 'evil-window-move-far-right
+    "w H" 'evil-window-move-far-left
+    "w K" 'evil-window-move-very-top
+    "w J" 'evil-window-move-very-bottom)
+#+end_src
+
+*** ESC Quit Prompt
+#+begin_src emacs-lisp
+  (global-set-key (kbd "<escape>") 'keyboard-escape-quit)
+#+end_src
+
+* Appearance
+** All The Icons
+#+begin_src emacs-lisp
+  (use-package all-the-icons)
+#+end_src
+
+** Disable Redundent UI
+#+begin_src emacs-lisp :tangle early-init.el
+(menu-bar-mode -1)
+(tool-bar-mode -1)
+(scroll-bar-mode -1)
+;; Do not show default modeline until doom-modeline is loaded
+(setq-default mode-line-format nil)
+#+end_src
+
+** Emacs Dashboard
+#+begin_src emacs-lisp
+  (use-package dashboard
+    :straight t
+    :custom
+    (dashboard-startup-banner "/home/kweint/.config/emacs/logos/gnubig2.png")
+    (dashboard-banner-logo-title "Pain heals. Chicks dig scars. Glory... lasts forver.")
+    (dashboard-center-content t)
+    (dashboard-set-heading-icons t)
+    (dashboard-set-file-icons t)
+    (dashboard-items nil)
+    :config
+    (dashboard-setup-startup-hook))
+#+end_src
+
+** Font
+#+begin_src emacs-lisp
+  (defconst qk/default-font-family "SFMono Nerd Font Mono")
+  (defconst qk/default-font-size 140)
+  (defconst qk/default-font-weight 'normal)
+
+  (defconst qk/variable-pitch-font-family "Hurmit Nerd Font Mono")
+  (defconst qk/variable-pitch-font-size 150)
+  (defconst qk/variable-pitch-font-weight 'semi-bold)
+
+  (custom-set-faces
+   `(default ((t (:family ,qk/default-font-family :height ,qk/default-font-size :weight ,qk/default-font-weight))))
+   `(variable-pitch ((t (:family ,qk/variable-pitch-font-family :height ,qk/variable-pitch-font-size)))))
+#+end_src
+
+#+RESULTS:
+
+** [[Highlight Indent Guides]]
+** Modeline
+*** Doom Modeline
+#+begin_src emacs-lisp
+  (use-package doom-modeline
+    :straight t
+    :init
+    ;; show doom-modeline at the same time with dashboard
+    (add-hook 'emacs-startup-hook 'doom-modeline-mode -100)
+    :custom
+    (doom-modeline-buffer-encoding nil)
+    (doom-modeline-vcs-max-length 40)
+    (doom-modeline-bar-width 1)
+    :hook
+    (dashboard-after-initialize . column-number-mode))
+#+end_src
+
+** Olivetti
+#+begin_src emacs-lisp
+    (use-package olivetti
+      :hook (org-mode . olivetti-mode))
+#+end_src
+
+** Org Bullets
+#+begin_src emacs-lisp
+  (use-package org-bullets
+    :custom
+    (org-bullets-bullet-list '("*"))
+    ;;;; Alternatives
+    ;; (org-bullets-bullet-list '("①" "②" "③" "④" "⑤" "⑥" "⑦" "⑧" "⑨"))
+    ;; (org-bullets-bullet-list '("➀" "➁" "➂" "➃" "➄" "➅" "➆" "➇" "➈"))
+    ;; (org-bullets-bullet-list '("❶" "❷" "❸" "❹" "❺" "❻" "❼" "❽" "❾"))
+    ;; (org-bullets-bullet-list '("➊" "➋" "➌" "➍" "➎" "➏" "➐" "➑" "➒"))
+    ;; (org-bullets-bullet-list '("⒈" "⒉" "⒊" "⒋" "⒌" "⒍" "⒎" "⒏" "⒐"))
+    :hook (org-mode . org-bullets-mode))
+#+end_src
+
+** [[Rainbow Delimiters]]
+** Theme
+*** Set the default theme
+#+begin_src emacs-lisp
+  (defun my/quick-switch-theme ()
+  "Toggle between a light and a dark theme"
+  (interactive)
+  (let ((theme
+         (if (member 'doom-earl-grey custom-enabled-themes)
+         'doom-one 'doom-earl-grey)))
+    (mapc 'disable-theme custom-enabled-themes)
+    (load-theme theme t)))
+  (use-package doom-themes :straight t)
+  (load-theme 'doom-one t) ; The value 't' disables confirmation for theme on startup. 
+#+end_src
+
+*** Customize certain faces across all themes
+#+begin_src emacs-lisp
+  (custom-set-faces
+  '(treemacs-root-face ((t (:inherit nil :foreground "white smoke" :weight normal))))) ; TODO move to treemacs package :config
+#+end_src
+
+*** Theme switch command
+#+begin_src emacs-lisp
+  (defun my/quick-switch-theme ()
+  "Toggle between a light and a dark theme \n Doom-one (dark) \n Doom-earl-grey (light)"
+  (interactive)
+  
+  (defconst dark-theme 'doom-one)
+  (defconst light-theme 'doom-earl-grey)
+
+  (let ((theme
+         (if (member light-theme custom-enabled-themes)
+         dark-theme light-theme)))
+    (mapc 'disable-theme custom-enabled-themes)
+    (load-theme theme t)))
+  (use-package doom-themes :straight t)
+#+end_src
+
+*** Disable all theme 
+#+begin_src emacs-lisp
+  (defun disable-all-themes ()
+  (interactive)
+  (mapc 'disable-theme custom-enabled-themes))
+#+end_src
+
+* Text Editing
+** Better Defaults
+#+begin_src emacs-lisp
+  (electric-pair-mode t)
+#+end_src
+
+** Company (Code & Text Completion)
+#+begin_src emacs-lisp
+  (use-package company :straight t :config (company-mode t))
+#+end_src
+
+** Evil
+#+begin_src emacs-lisp
+  (setq evil-want-keybinding nil)
+  (use-package evil-collection
+    :straight t
+    :config
+    (evil-collection-init '(calendar dired calc ediff)) 
+    (evil-set-initial-state 'Custom-mode 'normal)
+    :custom
+    (evil-undo-system 'undo-redo))
+  (use-package evil-mc
+    :config
+    (evil-mc-mode 1))
+    (evil-mode)
+
+#+end_src
+
+** Flycheck
+#+begin_src emacs-lisp
+  (use-package flycheck
+    :straight t
+    :custom
+    (flycheck-check-syntax-automatically '(save mode-enabled))
+    :bind
+    ( :map errors
+      ("n" . flycheck-next-error)
+      ("p" . flycheck-previous-error)
+      ("l" . flycheck-list-errors)
+      ("v" . flycheck-verify-setup)))
+#+end_src
+** General
+*** Electric Indent Mode
+#+begin_src emacs-lisp
+(use-package electric
+  :straight (:type built-in)
+  :bind
+  ( :map prog-mode-map
+    ("M-RET" . electric-indent-just-newline))
+  :hook
+  (dashboard-after-initialize . electric-indent-mode))
+#+end_src
+
+** Highlight Indent Guides
+#+begin_src emacs-lisp
+  (use-package highlight-indent-guides
+    :hook (prog-mode . highlight-indent-guides-mode)
+    :config
+    (setq highlight-indent-guides-method 'bitmap))
+#+End_src
+  
+** LSP
+*** Hook LSP mode to lang-mode
+#+begin_src emacs-lisp
+  (use-package lsp-mode
+    :straight t
+    :hook (csharp-mode . lsp-mode)
+    :commands lsp)
+#+end_src
+
+*** LSP UI 
+#+begin_src emacs-lisp
+  (use-package lsp-ui :commands lsp-ui-mode :straight t)
+#+end_src
+
+*** LSP Treemacs
+#+begin_src emacs-lisp
+  (use-package lsp-treemacs :commands lsp-treemacs-errors-list :straight t)
+#+end_src
+
+*** LSP ivy
+#+begin_src emacs-lisp
+  (use-package lsp-ivy :commands lsp-ivy-workspace-symbol :straight t)
+#+end_src
+
+** Languages
+*** C#
+**** C# mode
+#+begin_src emacs-lisp
+  (use-package csharp-mode
+    :straight t
+    ;;(add-to-list 'auto-mode-alist '("\\.cs\\'" . csharp-tree-sitter-mode))
+    :config
+    (c-toggle-auto-newline))
+#+end_src
+
+** Rainbow Delimiters
+#+begin_src emacs-lisp
+  (use-package rainbow-delimiters
+    :hook (prog-mode . rainbow-delimiters-mode))
+#+end_src
+ * Programming
+** Rainbow Delimiters
+#+begin_src emacs-lisp
+  (use-package rainbow-delimiters
+    :hook (prog-mode . rainbow-delimiters-mode))
+#+end_src
+
+** Simpleclip(
+Simplified access to the system clipboard in Emacs.
+#+begin_src emacs-lisp
+  (use-package simpleclip
+    :straight t
+    :config (simpleclip-mode 1))
+#+end_src
+
+** Undo tree
+#+begin_src emacs-lisp
+    (use-package undo-tree
+      :straight t)
+#+end_src
+
+** YASnippet (Snippet Completion)
+#+begin_src emacs-lisp
+  (use-package yasnippet
+    :straight t
+    ;; Expand snippets with `C-j', not with `TAB'. Use `TAB' to always
+    ;; jump to next field, even when company window is active. If there
+    ;; is need to complete company's selection, use `C-s'
+    ;; (`company-complete-selection').
+    :custom
+    (yas-indent-line nil)
+    (yas-inhibit-overlay-modification-protection t)
+    :custom-face
+    (yas-field-highlight-face ((t (:inherit region))))
+    :bind*
+    (("C-j" . yas-expand)
+     :map yas-minor-mode-map
+     ("TAB" . nil)
+     ("<tab>" . nil)
+     :map yas-keymap
+     ("TAB" . (lambda () (interactive) (company-abort) (yas-next-field)))
+     ("<tab>" . (lambda () (interactive) (company-abort) (yas-next-field))))
+    :hook
+    (dashboard-after-initialize . yas-global-mode)
+    (snippet-mode . (lambda () (setq-local require-final-newline nil))))
+#+end_src
+
+*** Company
+#+BEGIN_SRC emacs-lisp
+  (use-package company
+    :straight t)
+#+END_SRC
+
+* Search & Navigation
+** Better Defaults
+#+begin_src emacs-lisp
+  (recentf-mode t)
+  (setq-default
+   scroll-conservatively 101)                         ; Smooth scrolling
+#+end_src
+
+** Treemacs
+#+begin_src emacs-lisp
+  (use-package treemacs
+    :straight t
+    :custom-face
+    (treemacs-root-face ((t (:inherit nil :foreground "white smoke" :weight normal))))
+    :config
+    (setq treemacs-width 32))
+
+  (treemacs-load-theme "all-the-icons")
+  (treemacs-indent-guide-mode t)
+  (defun increase-left-fringe (&optional visibility)
+    (unless (or (null visibility) (eq 'visible visibility))
+      (set-window-fringes (selected-window) 10)))
+
+  (add-hook 'treemacs-mode-hook #'increase-left-fringe)
+  (add-hook 'treemacs-select-functions #'increase-left-fringe)
+
+  (treemacs-modify-theme "Default"
+          :config
+          (progn
+            (treemacs-create-icon
+             :icon (all-the-icons-faicon "cog" :v-adjust 0) :extensions ("conf"))
+            (treemacs-create-icon
+             :icon (all-the-icons-fileicon "emacs" :v-adjust 0) :extensions ("el"))
+            (treemacs-create-icon
+             :icon (all-the-icons-octicon "git-compare" :v-adjust 0) :extensions ("gitconfig"))
+            (treemacs-create-icon
+             :icon (all-the-icons-faicon "folder" :v-adjust 0) :extensions (dir-closed))
+            (treemacs-create-icon
+             :icon (all-the-icons-faicon "folder-open" :v-adjust 0) :extensions (dir-open))
+            (treemacs-create-icon
+             :icon (all-the-icons-octicon "file-code" :v-adjust 0) :extensions ("json" "yml" "yaml"))
+            (treemacs-create-icon
+             :icon (all-the-icons-octicon "file-text" :v-adjust 0) :extensions ("md"))
+            (treemacs-create-icon
+             :icon (all-the-icons-faicon "folder-open" :v-adjust 0) :extensions (root-closed))
+            (treemacs-create-icon
+             :icon (all-the-icons-faicon "folder" :v-adjust 0) :extensions (root-open))
+            (treemacs-create-icon
+             :icon (all-the-icons-faicon "html5" :v-adjust 0) :extensions ("html"))
+            (treemacs-create-icon
+             :icon (all-the-icons-octicon "terminal" :v-adjust 0) :fallback "" :extensions ("fish" "sh" "zsh"))
+            (treemacs-create-icon
+             :icon (all-the-icons-octicon "file-code" :v-adjust 0) :extensions (fallback))))
+#+end_src 
+
+#+RESULTS:
+
+** Hydra
+#+begin_src emacs-lisp
+  (use-package hydra :straight t)
+#+end_src
+
+** Ivy
+#+begin_src emacs-lisp
+  (use-package ivy
+    :straight t
+    :diminish
+    :bind (("C-s" . swiper)
+           :map ivy-minibuffer-map
+           ("TAB" . ivy-alt-done)
+           ("C-l" . ivy-alt-done)
+           ("C-j" . ivy-next-line)
+           ("C-k" . ivy-previous-line)
+           :map ivy-switch-buffer-map
+           ("C-k" . ivy-previous-line)
+           ("C-l" . ivy-done)
+           ("C-d" . ivy-switch-buffer-kill)
+           :map ivy-reverse-i-search-map
+           ("C-k" . ivy-previous-line)
+           ("C-d" . ivy-reverse-i-search-kill))
+    :config
+    (ivy-mode 1))
+#+end_src
+
+** Imenu
+#+begin_src emacs-lisp
+  (use-package imenu :straight t)
+  (use-package imenu-list :straight t)
+#+end_src
+
+* Tools
+** Better default
+*** ERC variables
+#+begin_src emacs-lisp
+  (setq erc-nick "poopsticks" erc-user-full-name "Scat Man John")
+#+end_src
+
+** Consult
+#+begin_src emacs-lisp
+    (use-package consult :straight t)
+#+end_src
+
+** Counsel
+#+begin_src emacs-lisp
+  (use-package counsel :straight t)
+#+end_src 
+
+** Emacs Screencast
+#+BEGIN_SRC emacs-lisp
+(use-package gif-screencast
+  :straight (:host gitlab :repo "ambrevar/emacs-gif-screencast")
+  :bind
+  ( :map gif-screencast-mode-map
+    ("<f8>". gif-screencast-toggle-pause)
+    ("<f9>". gif-screencast-stop)))
+#+END_SRC
+
+** Magit 
+#+begin_src emacs-lisp
+  (use-package magit)
+#+end_src
+
+** Org
+*** Evil Org
+#+begin_src emacs-lisp
+  (use-package evil-org
+    :straight t
+    :config
+    (set-face-attribute 'org-level-1 nil :height 160) 
+    :custom
+    (org-ellipsis "⤵") ;; ↴, ▼, ▶, ⤵
+    (org-startup-folded 'content)
+    ;;:custom-face
+    ;;(org-level-1 ((t (:inherit nil :height 100))))
+    :hook (org-mode . evil-org-mode)
+    :hook (org-mode . org-indent-mode))  ; show only headlines (and sub headlines, recursively) at startup
+#+end_src
+
+*** COMMENT Org Roam
+#+begin_src emacs-lisp
+  (use-package org-roam
+    :straight t)
+#+end_src
+
+*** COMMENT Org Sidebar Tree
+#+begin_src emacs-lisp
+    (use-package org-sidebar :straight t)
+#+end_src
+
+*** COMMENT Sidebar
+#+begin_src emacs-lisp
+  (require 'imenu)
+  (require 'imenu-list)
+
+  (defun my/org-tree-to-indirect-buffer ()
+    "Create indirect buffer, narrow it to current subtree and unfold blocks"
+  
+    (org-tree-to-indirect-buffer)
+    (org-show-block-all)
+    (setq-local my/org-blocks-hidden nil))
+
+  (defun my/org-sidebar ()
+    "Open an imenu list on the left that allow navigation."
+  
+    (interactive)
+    (setq imenu-list-after-jump-hook #'my/org-tree-to-indirect-buffer
+          imenu-list-position 'left
+          imenu-list-size 36
+          imenu-list-focus-after-activation t)
+
+    (let ((heading (substring-no-properties (or (org-get-heading t t t t) ""))))
+      (when (buffer-base-buffer)
+        (switch-to-buffer (buffer-base-buffer)))
+      (imenu-list-minor-mode)
+      (imenu-list-stop-timer)
+      (hl-line-mode)
+      (face-remap-add-relative 'hl-line :inherit 'nano-strong-i)
+      (setq header-line-format
+            '(:eval
+              (nano-modeline-render nil
+                                    (buffer-name imenu-list--displayed-buffer)
+                                    "(outline)"
+                                    "")))
+      (setq-local cursor-type nil)
+      (when (> (length heading) 0)
+        (goto-char (point-min))
+        (search-forward heading)
+        (imenu-list-display-dwim))))
+
+  (defun my/org-sidebar-toggle ()
+    "Toggle the org-sidebar"
+  
+    (interactive)
+    (if (get-buffer-window "*Ilist*")
+        (progn 
+          (quit-window nil (get-buffer-window "*Ilist*"))
+          (switch-to-buffer (buffer-base-buffer)))
+      (my/org-sidebar)))
+#+end_src
+
+** Sudo Edit
+#+begin_src emacs-lisp
+  (use-package sudo-edit :straight t :commands sudo-edit)
+#+end_src
+
+** Webpaste
+This mode allows to paste whole buffers or parts of buffers to
+pastebin-like services. It supports more than one service and will failover if one service fails.
+More services can easily be added over time and preferred services can easily be configured.
+#+begin_src emacs-lisp
+  (use-package webpaste
+    :straight t
+    :bind (("C-c C-p C-b" . webpaste-paste-buffer)
+           ("C-c C-p C-r" . webpaste-paste-region)
+           ("C-c C-p C-p" . webpaste-paste-buffer-or-region))
+    :config
+    (progn
+      (setq webpaste-provider-priority '("bpa.st"))))
+#+end_src
+
+*** Simpleclip URL
+Automatically copy the created URL to the clipboard with [[Simpleclip]] 
+#+begin_src emacs-lisp
+  (add-hook 'webpaste-return-url-hook
+            (lambda (url)
+              (message "Copied URL to clipboard: %S" url)
+              (simpleclip-set-contents url)))
+#+end_src
+
+** Which key
+#+begin_src emacs-lisp
+  (use-package which-key
+    :straight t
+    :config
+    (which-key-setup-minibuffer))
+    (which-key-mode)
+#+end_src
+
+
+
