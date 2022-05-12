@@ -1,5 +1,7 @@
 #+TITLE: Literate config file
+#+OPTIONS: toc:2
 
+* Table Of Contents
 * About
 ** init.el
 #+begin_src emacs-lisp :tangle init.el
