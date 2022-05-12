@@ -1,5 +1,4 @@
 #+TITLE: Literate config file
-#+OPTIONS: toc:2
 
 * Table Of Contents
 * About
