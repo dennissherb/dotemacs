@@ -1,6 +1,7 @@
 #+TITLE: Literate config file
 
 #+OPTIONS: toc:nil
+#+toc: 2
 
 * About
 ** init.el
