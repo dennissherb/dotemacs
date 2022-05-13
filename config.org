@@ -182,7 +182,7 @@ Keep Emacs directory clean.
   (use-package dashboard
     :straight t
     :custom
-    (dashboard-startup-banner "/home/kweint/.config/emacs/logos/RMS.png")
+    (dashboard-startup-banner "/home/kweint/.config/emacs/logos/gnubig2.png")
     (dashboard-banner-logo-title "Pain heals. Chicks dig scars. Glory... lasts forver.")
     (dashboard-center-content t)
     (dashboard-set-heading-icons t)
