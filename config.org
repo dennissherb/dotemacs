@@ -1,7 +1,6 @@
 #+TITLE: Literate config file
 
-#+OPTIONS: toc:nil
-#+toc: 2
+"Hello world"
 
 * About
 ** init.el
@@ -183,12 +182,12 @@ Keep Emacs directory clean.
   (use-package dashboard
     :straight t
     :custom
-    (dashboard-startup-banner "/home/kweint/.config/emacs/logos/gnubig2.png")
+    (dashboard-startup-banner "/home/kweint/.config/emacs/logos/RMS.png")
     (dashboard-banner-logo-title "Pain heals. Chicks dig scars. Glory... lasts forver.")
     (dashboard-center-content t)
     (dashboard-set-heading-icons t)
     (dashboard-set-file-icons t)
-    (dashboard-items nil)
+    ;;(dashboard-items t) 
     :config
     (dashboard-setup-startup-hook))
 #+end_src
@@ -251,16 +250,19 @@ Keep Emacs directory clean.
 ** Theme
 *** Set the default theme
 #+begin_src emacs-lisp
+  (defconst dark-theme 'doom-plain-dark)
+  (defconst light-theme 'doom-earl-grey)
+
   (defun my/quick-switch-theme ()
   "Toggle between a light and a dark theme"
   (interactive)
   (let ((theme
-         (if (member 'doom-earl-grey custom-enabled-themes)
-         'doom-one 'doom-earl-grey)))
+         (if (member light-theme custom-enabled-themes)
+         dark-theme light-theme)))
     (mapc 'disable-theme custom-enabled-themes)
     (load-theme theme t)))
   (use-package doom-themes :straight t)
-  (load-theme 'doom-one t) ; The value 't' disables confirmation for theme on startup. 
+  (load-theme dark-theme t) ; The value 't' disables confirmation for theme on startup. 
 #+end_src
 
 *** Customize certain faces across all themes
