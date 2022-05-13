@@ -1,6 +1,7 @@
 #+TITLE: Literate config file
 
-* Table Of Contents
+#+OPTIONS: toc:nil
+
 * About
 ** init.el
 #+begin_src emacs-lisp :tangle init.el
@@ -682,6 +683,4 @@ Automatically copy the created URL to the clipboard with [[Simpleclip]]
     (which-key-setup-minibuffer))
     (which-key-mode)
 #+end_src
-
-
 
