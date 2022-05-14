@@ -1,7 +1,5 @@
 #+TITLE: Literate config file
 
-"Hello world"
-
 * About
 ** init.el
 #+begin_src emacs-lisp :tangle init.el
@@ -33,6 +31,7 @@ Disable any reference to package.el
   (setq package-enable-at-startup nil)
   (setq straight-use-package-by-default 1)
 #+end_src
+
 ** Integration with =use-package=
 #+begin_src emacs-lisp
 (straight-use-package 'use-package)
@@ -76,13 +75,14 @@ minibuffer interaction (helm etc.).
 (Note: ":tangle early-init.el")
 https://www.gnu.org/software/emacs/manual/html_node/elisp/Magic-File-Names.html
 #+begin_src emacs-lisp :tangle early-init.el
-(defvar default-file-name-handler-alist file-name-handler-alist)
-(setq file-name-handler-alist nil)
+  (defvar default-file-name-handler-alist file-name-handler-alist)
+  (setq file-name-handler-alist nil)
 
-(add-hook 'emacs-startup-hook
-          (lambda ()
-            (setq file-name-handler-alist default-file-name-handler-alist)) 100)
+  (add-hook 'emacs-startup-hook
+            (lambda ()
+              (setq file-name-handler-alist default-file-name-handler-alist)) 100)
 #+end_src
+
 * Better Defaults
 ** Visual bell
 #+begin_src emacs-lisp
@@ -141,7 +141,7 @@ Keep Emacs directory clean.
     "h v" 'describe-variable
     "h f" 'describe-function
     "f p" 'search-in-config
-    "," 'counsel-switch-buffer
+    "," 'persp-counsel-switch-buffer
     "b k" 'kill-this-buffer
     "f r" 'consult-recent-file
     "w l" 'evil-window-right
@@ -154,7 +154,14 @@ Keep Emacs directory clean.
     "w L" 'evil-window-move-far-right
     "w H" 'evil-window-move-far-left
     "w K" 'evil-window-move-very-top
-    "w J" 'evil-window-move-very-bottom)
+    "w J" 'evil-window-move-very-bottom
+    "x k" 'persp-kill-buffer*
+    "x s" 'persp-switch
+    "x n" 'persp-next
+    "x p" 'persp-next
+    "x x r" 'persp-rename
+    "x x A" 'persp-add-buffer
+    "x x S" 'persp-set-buffer)
 #+end_src
 
 *** ESC Quit Prompt
@@ -182,7 +189,7 @@ Keep Emacs directory clean.
   (use-package dashboard
     :straight t
     :custom
-    (dashboard-startup-banner "/home/kweint/.config/emacs/logos/gnubig2.png")
+    (dashboard-startup-banner "/home/kweint/.config/emacs/logos/emacs-e-medium.png")
     (dashboard-banner-logo-title "Pain heals. Chicks dig scars. Glory... lasts forver.")
     (dashboard-center-content t)
     (dashboard-set-heading-icons t)
@@ -312,7 +319,7 @@ Keep Emacs directory clean.
   (use-package evil-collection
     :straight t
     :config
-    (evil-collection-init '(calendar dired calc ediff)) 
+    (evil-collection-init) 
     (evil-set-initial-state 'Custom-mode 'normal)
     :custom
     (evil-undo-system 'undo-redo))
@@ -336,6 +343,7 @@ Keep Emacs directory clean.
       ("l" . flycheck-list-errors)
       ("v" . flycheck-verify-setup)))
 #+end_src
+
 ** General
 *** Electric Indent Mode
 #+begin_src emacs-lisp
@@ -649,6 +657,13 @@ Simplified access to the system clipboard in Emacs.
       (my/org-sidebar)))
 #+end_src
 
+** Perspective
+#+begin_src emacs-lisp
+  (use-package perspective
+    :init
+    (persp-mode))
+#+end_src
+
 ** Sudo Edit
 #+begin_src emacs-lisp
   (use-package sudo-edit :straight t :commands sudo-edit)
@@ -686,4 +701,6 @@ Automatically copy the created URL to the clipboard with [[Simpleclip]]
     (which-key-setup-minibuffer))
     (which-key-mode)
 #+end_src
+
+
 
